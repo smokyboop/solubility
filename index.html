@@ -1,341 +1,390 @@
-import React, { useState, useMemo } from 'react';
-import { Thermometer, Beaker, Info, Droplets, Activity } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>용해도 곡선과 용액의 상태 시뮬레이션</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 세로 텍스트 정렬을 위한 커스텀 스타일 */
+        .vertical-text {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+        }
+        /* 슬라이더 부드러운 전환을 위한 클래스 */
+        .transition-transform {
+            transition: transform 0.3s ease, fill 0.3s ease, stroke 0.3s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 p-6 flex flex-col font-sans text-slate-800 items-center">
 
-const App = () => {
-  // 상태 변수: 온도 (X축: 0~100), 용질의 양 (Y축: 0~200)
-  const [temperature, setTemperature] = useState(60);
-  const [soluteAmount, setSoluteAmount] = useState(50);
-
-  // 용해도 곡선 방정식: 이미지에 맞춰 (0,60), (60,100), (80,150)을 지나는 3차 함수
-  // y = (11/67200)x^3 + (13/168)x + 60
-  const calculateSolubility = (temp) => {
-    const a = 11 / 67200;
-    const c = 13 / 168;
-    const d = 60;
-    return a * Math.pow(temp, 3) + c * temp + d;
-  };
-
-  const maxSolubility = calculateSolubility(temperature);
-  
-  // 상태 판별 (슬라이더 조작 편의성을 위해 1g 오차 허용)
-  const isSaturated = Math.abs(soluteAmount - maxSolubility) <= 1.0;
-  const isSupersaturated = soluteAmount > maxSolubility + 1.0;
-  const isUnsaturated = !isSaturated && !isSupersaturated;
-
-  const dissolvedAmount = isSupersaturated ? maxSolubility : soluteAmount;
-  const precipitatedAmount = isSupersaturated ? soluteAmount - maxSolubility : 0;
-
-  // 상태에 따른 색상 설정
-  const statusColor = isSupersaturated ? '#ef4444' : isSaturated ? '#22c55e' : '#3b82f6';
-  const statusTextColor = isSupersaturated ? 'text-red-500' : isSaturated ? 'text-green-500' : 'text-blue-500';
-  const statusText = isSupersaturated ? '과포화 및 석출' : isSaturated ? '포화 상태' : '불포화 상태';
-
-  const pointColor = '#3b82f6'; // 용액 시각화 동그라미 고정 색상 (파란색)
-
-  // 시각화용 동그라미 개수 (5g 당 1개)
-  const gPerCircle = 5;
-  const maxCircles = Math.max(0, Math.round(maxSolubility / gPerCircle));
-  const totalCircles = Math.max(0, Math.round(soluteAmount / gPerCircle));
-  const dissolvedCircles = Math.max(0, Math.round(dissolvedAmount / gPerCircle));
-  const precipitatedCircles = Math.max(0, Math.round(precipitatedAmount / gPerCircle));
-
-  // SVG 그래프 좌표 매핑
-  const SVG_SIZE = 500;
-  const PADDING = { top: 40, right: 40, bottom: 60, left: 60 };
-  const graphW = SVG_SIZE - PADDING.left - PADDING.right;
-  const graphH = SVG_SIZE - PADDING.top - PADDING.bottom;
-
-  const mapX = (val) => PADDING.left + (val / 100) * graphW;
-  const mapY = (val) => PADDING.top + graphH - (val / 200) * graphH;
-
-  // 곡선 경로 생성
-  const curvePath = useMemo(() => {
-    let path = `M ${mapX(0)} ${mapY(calculateSolubility(0))}`;
-    for (let t = 1; t <= 100; t++) {
-      path += ` L ${mapX(t)} ${mapY(calculateSolubility(t))}`;
-    }
-    return path;
-  }, []);
-
-  // 비커 내 액체 영역 동그라미 좌표 (골고루 퍼진 위치)
-  const liquidPositions = useMemo(() => {
-    const pos = [];
-    const rows = 8;
-    const colsPerRow = [6, 6, 6, 7, 6, 6, 6, 7];
-    let currentIndex = 0;
-    
-    for (let r = 0; r < rows; r++) {
-      const cols = colsPerRow[r];
-      const y = 115 + r * 14.5;
-      const startX = 40;
-      const endX = 160;
-      const stepX = (endX - startX) / (cols > 1 ? cols - 1 : 1);
-      
-      for (let c = 0; c < cols; c++) {
-        const noiseX = Math.sin(currentIndex * 13) * 18;
-        const noiseY = Math.cos(currentIndex * 17) * 18;
-        
-        let finalX = startX + c * stepX + noiseX;
-        let finalY = y + noiseY;
-        
-        if (finalX < 38) finalX = 38;
-        if (finalX > 162) finalX = 162;
-        if (finalY < 110) finalY = 110;
-        if (finalY > 220) finalY = 220;
-        
-        pos.push({ x: finalX, y: finalY });
-        currentIndex++;
-      }
-    }
-    // 자연스러운 배치를 위해 무작위 섞기(고정 시드 기반)
-    for (let i = pos.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.abs(Math.sin(i * 31)) * (i + 1));
-      [pos[i], pos[j]] = [pos[j], pos[i]];
-    }
-    return pos;
-  }, []);
-
-  // 비커 바닥 영역 동그라미 좌표 (가라앉아 쌓인 모습)
-  const bottomPositions = useMemo(() => {
-    const pos = [];
-    const rows = 7;
-    const colsPerRow = [8, 7, 8, 7, 8, 7, 5];
-    const spacing = 16;
-    for (let r = 0; r < rows; r++) {
-      const cols = colsPerRow[r];
-      const y = 234 - r * 13;
-      const startX = 100 - ((cols - 1) * spacing) / 2;
-      for (let c = 0; c < cols; c++) {
-        pos.push({ x: startX + c * spacing, y: y });
-      }
-    }
-    return pos;
-  }, []);
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-6 flex flex-col font-sans text-slate-800 items-center">
-      <header className="w-full max-w-6xl mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold flex items-center justify-center text-slate-800">
-          <Activity className="w-8 h-8 mr-3 text-indigo-600" />
-          용해도 곡선과 용액의 상태 시뮬레이션
+    <header class="w-full max-w-6xl mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold flex items-center justify-center text-slate-800">
+            <!-- Activity Icon -->
+            <svg class="w-8 h-8 mr-3 text-indigo-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            용해도 곡선과 용액의 상태 시뮬레이션
         </h1>
-      </header>
+    </header>
 
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* === 왼쪽: 그래프 및 직접 조작 슬라이더 === */}
-        <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex flex-col items-center">
-          <h2 className="text-lg font-bold mb-6 flex items-center text-slate-700 w-full">
-            <Thermometer className="w-5 h-5 mr-2 text-indigo-500" /> 그래프 축 조작
-          </h2>
-          
-          <div className="relative w-full max-w-[500px] aspect-square mx-auto">
+        <!-- === 왼쪽: 그래프 및 직접 조작 슬라이더 === -->
+        <div class="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex flex-col items-center">
+            <h2 class="text-lg font-bold mb-6 flex items-center text-slate-700 w-full">
+                <!-- Thermometer Icon -->
+                <svg class="w-5 h-5 mr-2 text-indigo-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"></path></svg>
+                그래프 축 조작
+            </h2>
             
-            {/* SVG 그래프 */}
-            <svg viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`} className="w-full h-full absolute inset-0">
-              {/* 그리드 */}
-              {[0, 20, 40, 60, 80, 100].map(t => (
-                <line key={`gx-${t}`} x1={mapX(t)} y1={mapY(0)} x2={mapX(t)} y2={mapY(200)} stroke="#f1f5f9" strokeWidth="2" />
-              ))}
-              {[0, 50, 100, 150, 200].map(v => (
-                <line key={`gy-${v}`} x1={mapX(0)} y1={mapY(v)} x2={mapX(100)} y2={mapY(v)} stroke="#f1f5f9" strokeWidth="2" />
-              ))}
+            <div class="relative w-full max-w-[500px] aspect-square mx-auto">
+                <!-- SVG 그래프 컨테이너 -->
+                <svg id="main-graph" viewBox="0 0 500 500" class="w-full h-full absolute inset-0">
+                    <g id="graph-static-bg"></g>
+                    <!-- 기준점 및 곡선은 JS로 생성됨 -->
+                    <path id="curve-path" fill="none" stroke="#64748b" stroke-width="4" stroke-linecap="round"></path>
+                    <g id="graph-static-points"></g>
+                    
+                    <!-- 동적 가이드 선 및 현재 점 -->
+                    <line id="guide-x" stroke-width="2" stroke-dasharray="5,5" opacity="0.6"></line>
+                    <line id="guide-y" stroke-width="2" stroke-dasharray="5,5" opacity="0.6"></line>
+                    <circle id="current-point" r="8" stroke="#fff" stroke-width="2" class="transition-transform drop-shadow-md"></circle>
+                </svg>
 
-              {/* X축, Y축 선 */}
-              <line x1={mapX(0)} y1={mapY(0)} x2={mapX(100)} y2={mapY(0)} stroke="#475569" strokeWidth="3" />
-              <line x1={mapX(0)} y1={mapY(0)} x2={mapX(0)} y2={mapY(200)} stroke="#475569" strokeWidth="3" />
+                <!-- X축 온도 조절 슬라이더 -->
+                <div class="absolute flex items-center justify-center" style="left: 12%; bottom: 0; width: 80%; height: 12%;">
+                    <input type="range" id="slider-temp" min="0" max="100" value="60" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer absolute" style="accent-color: #475569; bottom: 10px;">
+                </div>
 
-              {/* 축 라벨 */}
-              {[0, 20, 40, 60, 80, 100].map(t => (
-                <text key={`lx-${t}`} x={mapX(t)} y={mapY(0) + 18} fontSize="12" fill="#64748b" textAnchor="middle">{t}</text>
-              ))}
-              {[0, 50, 100, 150, 200].map(v => (
-                <text key={`ly-${v}`} x={mapX(0) - 10} y={mapY(v) + 4} fontSize="12" fill="#64748b" textAnchor="end">{v}</text>
-              ))}
-              <text x={mapX(90)} y={mapY(0) + 40} fontSize="14" fill="#334155" fontWeight="bold" textAnchor="middle">온도(℃)</text>
+                <!-- Y축 용질 조절 슬라이더 -->
+                <div class="absolute flex items-center justify-center" style="left: 0; top: 8%; width: 12%; height: 80%;">
+                    <div class="absolute flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 text-center" style="left: -26px; line-height: 1.2;">
+                        <span class="vertical-text mb-1">용질의 양</span>
+                        <span class="whitespace-nowrap">(g/</span>
+                        <span class="whitespace-nowrap">물100g)</span>
+                    </div>
+                    <input type="range" id="slider-solute" min="0" max="200" value="50" class="h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer absolute" style="width: 400px; transform: rotate(-90deg); accent-color: #475569;">
+                </div>
+            </div>
+        </div>
 
-              {/* 이미지에 기반한 A, B, C, D 점선 가이드 */}
-              <line x1={mapX(0)} y1={mapY(100)} x2={mapX(80)} y2={mapY(100)} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,4" />
-              <line x1={mapX(0)} y1={mapY(150)} x2={mapX(80)} y2={mapY(150)} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,4" />
-              <line x1={mapX(60)} y1={mapY(0)} x2={mapX(60)} y2={mapY(150)} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,4" />
-              <line x1={mapX(80)} y1={mapY(0)} x2={mapX(80)} y2={mapY(150)} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,4" />
+        <!-- === 오른쪽: 비커 시각화 및 데이터창 === -->
+        <div class="flex flex-col gap-3 lg:gap-4">
+            
+            <!-- 비커 시각화 영역 -->
+            <div class="bg-white p-4 lg:p-5 rounded-3xl shadow-lg border border-slate-100 flex flex-col items-center justify-center flex-1">
+                <h2 class="text-base lg:text-lg font-bold mb-2 flex items-center text-slate-700 w-full">
+                    <!-- Beaker Icon -->
+                    <svg class="w-5 h-5 mr-2 text-indigo-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 3h15"></path><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"></path><path d="M6 14h12"></path></svg>
+                    용액 시각화
+                </h2>
+                
+                <div class="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72">
+                    <svg viewBox="0 0 200 250" class="w-full h-full drop-shadow-xl overflow-visible">
+                        <!-- 물 -->
+                        <path d="M 23 100 L 177 100 L 175 235 C 175 238 173 240 170 240 L 30 240 C 27 240 25 238 25 235 Z" fill="#e0f2fe" opacity="0.8"></path>
+                        <ellipse cx="100" cy="100" rx="77" ry="6" fill="#bae6fd" opacity="0.6"></ellipse>
+                        
+                        <!-- 동그라미 입자들이 들어갈 그룹 -->
+                        <g id="beaker-particles"></g>
 
-              {/* 용해도 곡선 */}
-              <path d={curvePath} fill="none" stroke="#64748b" strokeWidth="4" strokeLinecap="round" />
-              
-              {/* 기준점 표시 (A, B, C, D) */}
-              {[
+                        <!-- 비커 외곽선 -->
+                        <path d="M 15 20 L 22 235 C 22 243 28 248 35 248 L 165 248 C 172 248 178 243 178 235 L 185 20" fill="none" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <line x1="18" y1="100" x2="35" y2="100" stroke="#94a3b8" stroke-width="2"></line>
+                        <text x="40" y="104" font-size="12" fill="#64748b" font-weight="bold">물 100g</text>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- 용액의 상태 창 -->
+            <div class="bg-white p-3 lg:p-4 rounded-2xl shadow-lg border border-slate-100">
+                <h2 class="text-sm lg:text-base font-bold mb-2 flex items-center text-indigo-500">
+                    <!-- Info Icon -->
+                    <svg class="w-4 h-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                    용액의 상태
+                </h2>
+                
+                <div id="status-box" class="py-1.5 px-2 lg:py-2 lg:px-3 mb-2 rounded-lg font-bold text-base lg:text-lg text-center border-2 bg-opacity-10">
+                    <span id="text-status"></span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-1.5 lg:gap-2">
+                    <div class="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
+                        <span class="text-[9px] lg:text-[10px] text-slate-500 block">1) 현재 온도</span>
+                        <span class="text-xs lg:text-sm font-bold text-slate-800"><span id="val-temp"></span> ℃</span>
+                    </div>
+                    <div class="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
+                        <span class="text-[9px] lg:text-[10px] text-slate-500 block">2) 녹인 용질 총량</span>
+                        <span class="text-xs lg:text-sm font-bold text-slate-800"><span id="val-total"></span> g</span>
+                    </div>
+                    <div class="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
+                        <span class="text-[9px] lg:text-[10px] text-slate-500 block">3) 현재 온도 최대 용해도</span>
+                        <span class="text-xs lg:text-sm font-bold text-slate-800"><span id="val-max"></span> g</span>
+                    </div>
+                    <div class="bg-blue-50 p-1.5 lg:p-2 rounded-lg border border-blue-100 flex flex-col justify-center">
+                        <span class="text-[9px] lg:text-[10px] text-blue-600 block">4) 녹아있는 양</span>
+                        <span class="text-xs lg:text-sm font-bold text-blue-700"><span id="val-dissolved"></span> g</span>
+                    </div>
+                    <div id="card-precip" class="col-span-2 p-1.5 lg:p-2 rounded-lg border flex flex-col justify-center bg-slate-50 border-slate-100">
+                        <span id="label-precip" class="text-[9px] lg:text-[10px] block text-slate-500">5) 바닥에 가라앉은 양 (석출량)</span>
+                        <span id="val-precip" class="text-sm lg:text-base font-bold text-slate-800"></span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 로직 스크립트 -->
+    <script>
+        // --- 상수 및 좌표 매핑 로직 ---
+        const SVG_SIZE = 500;
+        const PADDING = { top: 40, right: 40, bottom: 60, left: 60 };
+        const graphW = SVG_SIZE - PADDING.left - PADDING.right;
+        const graphH = SVG_SIZE - PADDING.top - PADDING.bottom;
+
+        const mapX = (val) => PADDING.left + (val / 100) * graphW;
+        const mapY = (val) => PADDING.top + graphH - (val / 200) * graphH;
+
+        // 용해도 곡선 방정식
+        const calculateSolubility = (temp) => {
+            const a = 11 / 67200;
+            const c = 13 / 168;
+            const d = 60;
+            return a * Math.pow(temp, 3) + c * temp + d;
+        };
+
+        // --- 초기 SVG 정적 요소 렌더링 ---
+        function initStaticSVG() {
+            const bgGroup = document.getElementById('graph-static-bg');
+            const ptGroup = document.getElementById('graph-static-points');
+            const svgNS = "http://www.w3.org/2000/svg";
+
+            const createLine = (x1, y1, x2, y2, stroke, strokeWidth, dash) => {
+                let l = document.createElementNS(svgNS, "line");
+                l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+                l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+                l.setAttribute("stroke", stroke);
+                l.setAttribute("stroke-width", strokeWidth);
+                if(dash) l.setAttribute("stroke-dasharray", dash);
+                return l;
+            };
+
+            const createText = (x, y, text, align, size="12", weight="normal", fill="#64748b") => {
+                let t = document.createElementNS(svgNS, "text");
+                t.setAttribute("x", x); t.setAttribute("y", y);
+                t.setAttribute("font-size", size);
+                t.setAttribute("fill", fill);
+                t.setAttribute("text-anchor", align);
+                t.setAttribute("font-weight", weight);
+                t.textContent = text;
+                return t;
+            };
+
+            // 그리드 생성
+            [0, 20, 40, 60, 80, 100].forEach(t => bgGroup.appendChild(createLine(mapX(t), mapY(0), mapX(t), mapY(200), "#f1f5f9", "2")));
+            [0, 50, 100, 150, 200].forEach(v => bgGroup.appendChild(createLine(mapX(0), mapY(v), mapX(100), mapY(v), "#f1f5f9", "2")));
+            // 축 생성
+            bgGroup.appendChild(createLine(mapX(0), mapY(0), mapX(100), mapY(0), "#475569", "3"));
+            bgGroup.appendChild(createLine(mapX(0), mapY(0), mapX(0), mapY(200), "#475569", "3"));
+            // 축 라벨
+            [0, 20, 40, 60, 80, 100].forEach(t => bgGroup.appendChild(createText(mapX(t), mapY(0) + 18, t, "middle")));
+            [0, 50, 100, 150, 200].forEach(v => bgGroup.appendChild(createText(mapX(0) - 10, mapY(v) + 4, v, "end")));
+            bgGroup.appendChild(createText(mapX(90), mapY(0) + 40, "온도(℃)", "middle", "14", "bold", "#334155"));
+
+            // 가이드 점선 (A,B,C,D)
+            bgGroup.appendChild(createLine(mapX(0), mapY(100), mapX(80), mapY(100), "#94a3b8", "1.5", "4,4"));
+            bgGroup.appendChild(createLine(mapX(0), mapY(150), mapX(80), mapY(150), "#94a3b8", "1.5", "4,4"));
+            bgGroup.appendChild(createLine(mapX(60), mapY(0), mapX(60), mapY(150), "#94a3b8", "1.5", "4,4"));
+            bgGroup.appendChild(createLine(mapX(80), mapY(0), mapX(80), mapY(150), "#94a3b8", "1.5", "4,4"));
+
+            // 곡선 그리기
+            let curveD = `M ${mapX(0)} ${mapY(calculateSolubility(0))}`;
+            for (let t = 1; t <= 100; t++) { curveD += ` L ${mapX(t)} ${mapY(calculateSolubility(t))}`; }
+            document.getElementById('curve-path').setAttribute('d', curveD);
+
+            // A, B, C, D 점
+            const points = [
                 { id: 'A', x: 60, y: 150, ox: 0, oy: -12 },
                 { id: 'B', x: 80, y: 150, ox: 0, oy: -12 },
                 { id: 'C', x: 60, y: 100, ox: -16, oy: -12 },
                 { id: 'D', x: 80, y: 100, ox: 16, oy: 6 }
-              ].map(p => (
-                <g key={`point-${p.id}`}>
-                  <circle cx={mapX(p.x)} cy={mapY(p.y)} r="5" fill="#334155" />
-                  <text x={mapX(p.x) + p.ox} y={mapY(p.y) + p.oy} fontSize="16" fill="#1e293b" fontWeight="bold" textAnchor="middle">{p.id}</text>
-                </g>
-              ))}
+            ];
+            points.forEach(p => {
+                let c = document.createElementNS(svgNS, "circle");
+                c.setAttribute("cx", mapX(p.x)); c.setAttribute("cy", mapY(p.y));
+                c.setAttribute("r", "5"); c.setAttribute("fill", "#334155");
+                ptGroup.appendChild(c);
+                ptGroup.appendChild(createText(mapX(p.x) + p.ox, mapY(p.y) + p.oy, p.id, "middle", "16", "bold", "#1e293b"));
+            });
+        }
 
-              {/* 현재 위치 점선 가이드 */}
-              <line x1={mapX(temperature)} y1={mapY(0)} x2={mapX(temperature)} y2={mapY(soluteAmount)} stroke={statusColor} strokeWidth="2" strokeDasharray="5,5" opacity="0.6" />
-              <line x1={mapX(0)} y1={mapY(soluteAmount)} x2={mapX(temperature)} y2={mapY(soluteAmount)} stroke={statusColor} strokeWidth="2" strokeDasharray="5,5" opacity="0.6" />
+        // --- 입자 위치 데이터 생성 ---
+        const liquidPositions = (() => {
+            const pos = [];
+            const rows = 8;
+            const colsPerRow = [6, 6, 6, 7, 6, 6, 6, 7];
+            let currentIndex = 0;
+            for (let r = 0; r < rows; r++) {
+                const cols = colsPerRow[r];
+                const y = 115 + r * 14.5;
+                const startX = 40, endX = 160;
+                const stepX = (endX - startX) / (cols > 1 ? cols - 1 : 1);
+                for (let c = 0; c < cols; c++) {
+                    const noiseX = Math.sin(currentIndex * 13) * 18;
+                    const noiseY = Math.cos(currentIndex * 17) * 18;
+                    let finalX = Math.max(38, Math.min(162, startX + c * stepX + noiseX));
+                    let finalY = Math.max(110, Math.min(220, y + noiseY));
+                    pos.push({ x: finalX, y: finalY });
+                    currentIndex++;
+                }
+            }
+            // Shuffle
+            for (let i = pos.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.abs(Math.sin(i * 31)) * (i + 1));
+                [pos[i], pos[j]] = [pos[j], pos[i]];
+            }
+            return pos;
+        })();
 
-              {/* 현재 상태 점 */}
-              <circle cx={mapX(temperature)} cy={mapY(soluteAmount)} r="8" fill={statusColor} stroke="#fff" strokeWidth="2" className="transition-all duration-300 shadow-lg" />
-            </svg>
+        const bottomPositions = (() => {
+            const pos = [];
+            const rows = 7;
+            const colsPerRow = [8, 7, 8, 7, 8, 7, 5];
+            const spacing = 16;
+            for (let r = 0; r < rows; r++) {
+                const cols = colsPerRow[r];
+                const y = 234 - r * 13;
+                const startX = 100 - ((cols - 1) * spacing) / 2;
+                for (let c = 0; c < cols; c++) { pos.push({ x: startX + c * spacing, y: y }); }
+            }
+            return pos;
+        })();
 
-            {/* X축 온도 조절 슬라이더 (그래프 바로 하단에 배치) */}
-            <div className="absolute flex items-center justify-center" 
-                 style={{ 
-                   left: `${(PADDING.left / SVG_SIZE) * 100}%`, 
-                   bottom: 0, 
-                   width: `${(graphW / SVG_SIZE) * 100}%`, 
-                   height: `${(PADDING.bottom / SVG_SIZE) * 100}%` 
-                 }}>
-              <input 
-                type="range" min="0" max="100" value={temperature} 
-                onChange={(e) => setTemperature(Number(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer absolute"
-                style={{ accentColor: '#475569', bottom: '10px' }}
-              />
-            </div>
 
-            {/* Y축 용질의 양 조절 슬라이더 (그래프 바로 좌측에 배치, 세로 회전) */}
-            <div className="absolute flex items-center justify-center" 
-                 style={{ 
-                   left: 0, 
-                   top: `${(PADDING.top / SVG_SIZE) * 100}%`, 
-                   width: `${(PADDING.left / SVG_SIZE) * 100}%`, 
-                   height: `${(graphH / SVG_SIZE) * 100}%` 
-                 }}>
-              {/* 똑바로 세운 가이드 텍스트 */}
-              <div className="absolute flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 text-center"
-                   style={{ 
-                     left: '-26px', 
-                     lineHeight: '1.2'
-                   }}>
-                <span style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }} className="mb-1">
-                  용질의 양
-                </span>
-                <span className="whitespace-nowrap">(g/</span>
-                <span className="whitespace-nowrap">물100g)</span>
-              </div>
-              <input 
-                type="range" min="0" max="200" value={soluteAmount} 
-                onChange={(e) => setSoluteAmount(Number(e.target.value))}
-                className="h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer absolute"
-                style={{ 
-                  width: `${graphH}px`, // SVG 내부 스케일과 매칭
-                  transform: 'rotate(-90deg)', 
-                  accentColor: '#475569'
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* === 오른쪽: 비커 시각화 및 데이터창 === */}
-        <div className="flex flex-col gap-3 lg:gap-4">
-          
-          {/* 비커 시각화 영역 */}
-          <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-lg border border-slate-100 flex flex-col items-center justify-center flex-1">
-            <h2 className="text-base lg:text-lg font-bold mb-2 flex items-center text-slate-700 w-full">
-              <Beaker className="w-5 h-5 mr-2 text-indigo-500" /> 용액 시각화
-            </h2>
+        // --- 상태 업데이트 로직 ---
+        function updateSimulation() {
+            const temperature = parseFloat(document.getElementById('slider-temp').value);
+            const soluteAmount = parseFloat(document.getElementById('slider-solute').value);
             
-            {/* 비커 크기 축소하여 스크롤 방지 */}
-            <div className="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72">
-              <svg viewBox="0 0 200 250" className="w-full h-full drop-shadow-xl overflow-visible">
-                {/* 비커 안의 물 */}
-                <path d="M 23 100 L 177 100 L 175 235 C 175 238 173 240 170 240 L 30 240 C 27 240 25 238 25 235 Z" fill="#e0f2fe" opacity="0.8" />
-                <ellipse cx="100" cy="100" rx="77" ry="6" fill="#bae6fd" opacity="0.6" />
-
-                {/* 용질 동그라미 처리 규칙 */}
-                {/* 1. 용해도(최대 수용량) 및 녹아있는 용질 (액체 영역에 분포) */}
-                {Array.from({ length: maxCircles }).map((_, i) => {
-                  const pos = liquidPositions[i % liquidPositions.length];
-                  const isDissolved = i < dissolvedCircles;
-                  return (
-                    <circle 
-                      key={`capacity-${i}`} 
-                      cx={pos.x} 
-                      cy={pos.y} 
-                      r="8" 
-                      fill={isDissolved ? pointColor : "transparent"} 
-                      stroke={isDissolved ? "transparent" : "#94a3b8"}
-                      strokeWidth={isDissolved ? "0" : "2"}
-                      strokeDasharray={isDissolved ? "none" : "3,3"}
-                      className="transition-all duration-300"
-                    />
-                  );
-                })}
-
-                {/* 2. 석출된 용질 (바닥에 쌓임 - 항상 채워짐) */}
-                {Array.from({ length: precipitatedCircles }).map((_, i) => {
-                  const pos = bottomPositions[i % bottomPositions.length];
-                  return (
-                    <circle 
-                      key={`precip-${i}`} 
-                      cx={pos.x} 
-                      cy={pos.y} 
-                      r="8" 
-                      fill={pointColor}
-                      stroke="#ffffff"
-                      strokeWidth="1.5"
-                      className="transition-all duration-300 drop-shadow-sm"
-                    />
-                  );
-                })}
-
-                {/* 비커 외곽선 */}
-                <path d="M 15 20 L 22 235 C 22 243 28 248 35 248 L 165 248 C 172 248 178 243 178 235 L 185 20" fill="none" stroke="#cbd5e1" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-                <line x1="18" y1="100" x2="35" y2="100" stroke="#94a3b8" strokeWidth="2" />
-                <text x="40" y="104" fontSize="12" fill="#64748b" fontWeight="bold">물 100g</text>
-              </svg>
-            </div>
-          </div>
-
-          {/* 용액의 상태 창 */}
-          <div className="bg-white p-3 lg:p-4 rounded-2xl shadow-lg border border-slate-100">
-            <h2 className="text-sm lg:text-base font-bold mb-2 flex items-center text-indigo-500">
-              <Info className="w-4 h-4 mr-1.5" /> 용액의 상태
-            </h2>
+            const maxSolubility = calculateSolubility(temperature);
             
-            <div className={`py-1.5 px-2 lg:py-2 lg:px-3 mb-2 rounded-lg font-bold text-base lg:text-lg text-center border-2 ${statusTextColor} bg-opacity-10`} style={{ borderColor: statusColor, backgroundColor: `${statusColor}15` }}>
-              {statusText}
-            </div>
+            const isSaturated = Math.abs(soluteAmount - maxSolubility) <= 1.0;
+            const isSupersaturated = soluteAmount > maxSolubility + 1.0;
+            const isUnsaturated = !isSaturated && !isSupersaturated;
 
-            {/* 세로 공간을 줄이기 위해 그리드 간격, 패딩, 폰트 크기 대폭 축소 */}
-            <div className="grid grid-cols-2 gap-1.5 lg:gap-2">
-              <div className="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
-                <span className="text-[9px] lg:text-[10px] text-slate-500 block">1) 현재 온도</span>
-                <span className="text-xs lg:text-sm font-bold text-slate-800">{temperature} ℃</span>
-              </div>
-              <div className="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
-                <span className="text-[9px] lg:text-[10px] text-slate-500 block">2) 녹인 용질 총량</span>
-                <span className="text-xs lg:text-sm font-bold text-slate-800">{soluteAmount} g</span>
-              </div>
-              <div className="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
-                <span className="text-[9px] lg:text-[10px] text-slate-500 block">3) 현재 온도 최대 용해도</span>
-                <span className="text-xs lg:text-sm font-bold text-slate-800">{maxSolubility.toFixed(1)} g</span>
-              </div>
-              <div className="bg-blue-50 p-1.5 lg:p-2 rounded-lg border border-blue-100 flex flex-col justify-center">
-                <span className="text-[9px] lg:text-[10px] text-blue-600 block">4) 녹아있는 양</span>
-                <span className="text-xs lg:text-sm font-bold text-blue-700">{dissolvedAmount.toFixed(1)} g</span>
-              </div>
-              <div className={`col-span-2 p-1.5 lg:p-2 rounded-lg border flex flex-col justify-center ${isSupersaturated ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
-                <span className={`text-[9px] lg:text-[10px] block ${isSupersaturated ? 'text-red-600' : 'text-slate-500'}`}>5) 바닥에 가라앉은 양 (석출량)</span>
-                <span className={`text-sm lg:text-base font-bold ${isSupersaturated ? 'text-red-700' : 'text-slate-800'}`}>
-                  {precipitatedAmount.toFixed(1)} g
-                </span>
-              </div>
-            </div>
-          </div>
+            const dissolvedAmount = isSupersaturated ? maxSolubility : soluteAmount;
+            const precipitatedAmount = isSupersaturated ? soluteAmount - maxSolubility : 0;
 
-        </div>
-      </div>
-    </div>
-  );
-};
+            let statusColor = '#3b82f6';
+            let statusTextColorClass = 'text-blue-500';
+            let statusText = '불포화 상태';
+            
+            if (isSupersaturated) {
+                statusColor = '#ef4444';
+                statusTextColorClass = 'text-red-500';
+                statusText = '과포화 및 석출';
+            } else if (isSaturated) {
+                statusColor = '#22c55e';
+                statusTextColorClass = 'text-green-500';
+                statusText = '포화 상태';
+            }
 
-export default App;
+            const pointColor = '#3b82f6';
+            const gPerCircle = 5;
+            const maxCircles = Math.max(0, Math.round(maxSolubility / gPerCircle));
+            const dissolvedCircles = Math.max(0, Math.round(dissolvedAmount / gPerCircle));
+            const precipitatedCircles = Math.max(0, Math.round(precipitatedAmount / gPerCircle));
+
+            // DOM 텍스트 업데이트
+            document.getElementById('val-temp').textContent = temperature;
+            document.getElementById('val-total').textContent = soluteAmount;
+            document.getElementById('val-max').textContent = maxSolubility.toFixed(1);
+            document.getElementById('val-dissolved').textContent = dissolvedAmount.toFixed(1);
+            document.getElementById('val-precip').textContent = precipitatedAmount.toFixed(1) + " g";
+            
+            document.getElementById('text-status').textContent = statusText;
+            
+            const statusBox = document.getElementById('status-box');
+            statusBox.className = `py-1.5 px-2 lg:py-2 lg:px-3 mb-2 rounded-lg font-bold text-base lg:text-lg text-center border-2 ${statusTextColorClass} bg-opacity-10 transition-colors`;
+            statusBox.style.borderColor = statusColor;
+            statusBox.style.backgroundColor = statusColor + '15'; // 15 is hex for ~8% opacity
+
+            const precipCard = document.getElementById('card-precip');
+            const precipLabel = document.getElementById('label-precip');
+            const precipVal = document.getElementById('val-precip');
+            if (isSupersaturated) {
+                precipCard.className = "col-span-2 p-1.5 lg:p-2 rounded-lg border flex flex-col justify-center bg-red-50 border-red-100 transition-colors";
+                precipLabel.className = "text-[9px] lg:text-[10px] block text-red-600";
+                precipVal.className = "text-sm lg:text-base font-bold text-red-700";
+            } else {
+                precipCard.className = "col-span-2 p-1.5 lg:p-2 rounded-lg border flex flex-col justify-center bg-slate-50 border-slate-100 transition-colors";
+                precipLabel.className = "text-[9px] lg:text-[10px] block text-slate-500";
+                precipVal.className = "text-sm lg:text-base font-bold text-slate-800";
+            }
+
+            // 그래프 SVG 요소 위치 업데이트
+            const cx = mapX(temperature);
+            const cy = mapY(soluteAmount);
+
+            const pt = document.getElementById('current-point');
+            pt.setAttribute('cx', cx); pt.setAttribute('cy', cy);
+            pt.setAttribute('fill', statusColor);
+
+            const guideX = document.getElementById('guide-x');
+            guideX.setAttribute('x1', cx); guideX.setAttribute('y1', mapY(0));
+            guideX.setAttribute('x2', cx); guideX.setAttribute('y2', cy);
+            guideX.setAttribute('stroke', statusColor);
+
+            const guideY = document.getElementById('guide-y');
+            guideY.setAttribute('x1', mapX(0)); guideY.setAttribute('y1', cy);
+            guideY.setAttribute('x2', cx); guideY.setAttribute('y2', cy);
+            guideY.setAttribute('stroke', statusColor);
+
+            // 비커 입자 렌더링
+            const particlesGroup = document.getElementById('beaker-particles');
+            particlesGroup.innerHTML = ''; // 기존 입자 제거
+
+            // 1. 녹아있는 용질 및 수용량 표시
+            for (let i = 0; i < maxCircles; i++) {
+                let pos = liquidPositions[i % liquidPositions.length];
+                let isDissolved = i < dissolvedCircles;
+                
+                let c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.setAttribute("cx", pos.x);
+                c.setAttribute("cy", pos.y);
+                c.setAttribute("r", "8");
+                c.setAttribute("fill", isDissolved ? pointColor : "transparent");
+                c.setAttribute("stroke", isDissolved ? "transparent" : "#94a3b8");
+                c.setAttribute("stroke-width", isDissolved ? "0" : "2");
+                if(!isDissolved) c.setAttribute("stroke-dasharray", "3,3");
+                c.style.transition = "all 0.3s ease-in-out";
+                particlesGroup.appendChild(c);
+            }
+
+            // 2. 석출된 용질
+            for (let i = 0; i < precipitatedCircles; i++) {
+                let pos = bottomPositions[i % bottomPositions.length];
+                let c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.setAttribute("cx", pos.x);
+                c.setAttribute("cy", pos.y);
+                c.setAttribute("r", "8");
+                c.setAttribute("fill", pointColor);
+                c.setAttribute("stroke", "#ffffff");
+                c.setAttribute("stroke-width", "1.5");
+                c.style.transition = "all 0.3s ease-in-out";
+                particlesGroup.appendChild(c);
+            }
+        }
+
+        // --- 초기화 및 이벤트 리스너 등록 ---
+        initStaticSVG();
+        updateSimulation();
+
+        document.getElementById('slider-temp').addEventListener('input', updateSimulation);
+        document.getElementById('slider-solute').addEventListener('input', updateSimulation);
+
+    </script>
+</body>
+</html>
