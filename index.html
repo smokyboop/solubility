@@ -3,526 +3,388 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로르산과 팔미트산의 녹는점 비교 - 초미녀의 과학실험실</title>
-    <!-- Tailwind CSS for styling -->
+    <title>용해도 곡선과 용액의 상태 시뮬레이션</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js for graphs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
-        body {
-            font-family: 'Noto Sans KR', sans-serif;
-            background-color: #f0fdf4; /* 연한 초록색 배경 */
+        /* 세로 텍스트 정렬을 위한 커스텀 스타일 */
+        .vertical-text {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
         }
-        .quiz-input {
-            border: 2px solid #cbd5e1;
-            border-radius: 0.375rem;
-            padding: 0.25rem 0.5rem;
-            width: 80px;
-            text-align: center;
-        }
-        .quiz-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
-        }
-        .quiz-select {
-            border: 2px solid #cbd5e1;
-            border-radius: 0.375rem;
-            padding: 0.25rem 2rem 0.25rem 0.5rem;
-        }
-        .chart-container {
-            position: relative;
-            height: 280px;
-            width: 100%;
-        }
-        /* 추가된 실험실 CSS */
-        .beaker {
-            position: relative;
-            width: 70px; /* 비커 크기 확대 */
-            height: 90px;
-            border: 3px solid #cbd5e1;
-            border-top: none;
-            border-radius: 0 0 12px 12px;
-            margin: 0 auto;
-            background-color: rgba(255, 255, 255, 0.7);
-            overflow: hidden;
-            box-shadow: inset 0 -3px 6px rgba(0,0,0,0.05);
-        }
-        /* 고체/액체 애니메이션 래퍼 */
-        .substance-wrapper {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            transition: height 0.5s ease;
-            display: flex;
-            flex-direction: column; /* 고체는 위, 액체는 아래로 차곡차곡 쌓이도록 설정 */
-        }
-        /* 액체 레이어 */
-        .liquid-layer {
-            width: 100%;
-            height: 0%; /* 처음엔 0% */
-            opacity: 0; /* 처음에 액체가 보이지 않도록 투명도 추가 */
-            transition: height 0.1s linear, opacity 0.1s linear; /* 프레임마다 부드럽게 연결 */
-        }
-        .lauric-liquid {
-            background-color: rgba(191, 219, 254, 0.7);
-            border-top: 2px solid rgba(147, 197, 253, 0.9);
-        }
-        .palmitic-liquid {
-            background-color: rgba(253, 186, 116, 0.7);
-            border-top: 2px solid rgba(251, 146, 60, 0.9);
-        }
-        /* 고체 가루 레이어 */
-        .solid-layer {
-            width: 100%;
-            height: 100%; /* 처음엔 래퍼의 100%를 차지 */
-            background-color: #f8fafc;
-            /* 가루(Powder) 느낌을 내는 점무늬 패턴 */
-            background-image: 
-                radial-gradient(#94a3b8 15%, transparent 16%),
-                radial-gradient(#94a3b8 15%, transparent 16%);
-            background-size: 6px 6px;
-            background-position: 0 0, 3px 3px;
-            border-top: 2px dashed #cbd5e1;
-            transition: height 0.1s linear, opacity 0.1s linear; /* 투명도 트랜지션 추가 */
-        }
-        .flame-container {
-            height: 35px; /* 불꽃 컨테이너 높이 확대 */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem; /* 불꽃 이모지 크기 확대 */
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .flame-active {
-            opacity: 1;
-            animation: flicker 0.3s infinite alternate;
-        }
-        @keyframes flicker {
-            0% { transform: scale(1) translateY(0); }
-            100% { transform: scale(1.1) translateY(-2px); }
+        /* 슬라이더 부드러운 전환을 위한 클래스 */
+        .transition-transform {
+            transition: transform 0.3s ease, fill 0.3s ease, stroke 0.3s ease;
         }
     </style>
 </head>
-<body class="p-2 md:p-4 text-gray-800">
+<body class="min-h-screen bg-slate-50 p-6 flex flex-col font-sans text-slate-800 items-center">
 
-    <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        <!-- 헤더 섹션 -->
-        <div class="bg-blue-500 text-white py-2 px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-1">
-            <h1 class="text-lg font-bold flex items-center flex-wrap gap-2">
-                <span class="text-xs md:text-sm font-medium bg-pink-400 text-white px-2.5 py-0.5 rounded-full shadow-sm">⭐ 초미녀의 과학실험실</span>
-                <span>🌡️ 로르산과 팔미트산의 녹는점 비교하기</span>
-            </h1>
-            <p class="text-blue-100 text-xs mt-1 md:mt-0">일정한 압력에서 고체가 액체로 변할 때 일정하게 유지되는 온도인 '녹는점'을 알아봅시다.</p>
-        </div>
+    <header class="w-full max-w-6xl mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold flex items-center justify-center text-slate-800">
+            <!-- Activity Icon -->
+            <svg class="w-8 h-8 mr-3 text-indigo-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            용해도 곡선과 용액의 상태 시뮬레이션
+        </h1>
+    </header>
 
-        <div class="p-4 md:p-6">
-            <p class="mb-3 text-sm md:text-base text-gray-600">아래의 가상 실험실에서 1g, 2g을 각각 넣고 가열하며 그래프를 확인해 보세요.</p>
+    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        <!-- === 왼쪽: 그래프 및 직접 조작 슬라이더 === -->
+        <div class="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex flex-col items-center">
+            <h2 class="text-lg font-bold mb-6 flex items-center text-slate-700 w-full">
+                <!-- Thermometer Icon -->
+                <svg class="w-5 h-5 mr-2 text-indigo-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"></path></svg>
+                그래프 축 조작
+            </h2>
+            
+            <div class="relative w-full max-w-[500px] aspect-square mx-auto">
+                <!-- SVG 그래프 컨테이너 -->
+                <svg id="main-graph" viewBox="0 0 500 500" class="w-full h-full absolute inset-0">
+                    <g id="graph-static-bg"></g>
+                    <!-- 기준점 및 곡선은 JS로 생성됨 -->
+                    <path id="curve-path" fill="none" stroke="#64748b" stroke-width="4" stroke-linecap="round"></path>
+                    <g id="graph-static-points"></g>
+                    
+                    <!-- 동적 가이드 선 및 현재 점 -->
+                    <line id="guide-x" stroke-width="2" stroke-dasharray="5,5" opacity="0.6"></line>
+                    <line id="guide-y" stroke-width="2" stroke-dasharray="5,5" opacity="0.6"></line>
+                    <circle id="current-point" r="8" stroke="#fff" stroke-width="2" class="transition-transform drop-shadow-md"></circle>
+                </svg>
 
-            <!-- 그래프 섹션 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <!-- 로르산 그래프 영역 -->
-                <div class="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                    <h2 class="text-xl font-bold text-center mb-2 text-blue-700">로르산의 가열 곡선</h2>
-                    <div class="chart-container">
-                        <canvas id="lauricChart"></canvas>
-                    </div>
+                <!-- X축 온도 조절 슬라이더 -->
+                <div class="absolute flex items-center justify-center" style="left: 12%; bottom: 0; width: 80%; height: 12%;">
+                    <input type="range" id="slider-temp" min="0" max="100" value="60" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer absolute" style="accent-color: #475569; bottom: 10px;">
                 </div>
 
-                <!-- 팔미트산 그래프 영역 -->
-                <div class="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                    <h2 class="text-xl font-bold text-center mb-2 text-orange-700">팔미트산의 가열 곡선</h2>
-                    <div class="chart-container">
-                        <canvas id="palmiticChart"></canvas>
+                <!-- Y축 용질 조절 슬라이더 -->
+                <div class="absolute flex items-center justify-center" style="left: 0; top: 8%; width: 12%; height: 80%;">
+                    <div class="absolute flex flex-col items-center justify-center text-[10px] font-bold text-slate-500 text-center" style="left: -26px; line-height: 1.2;">
+                        <span class="vertical-text mb-1">용질의 양</span>
+                        <span class="whitespace-nowrap">(g/</span>
+                        <span class="whitespace-nowrap">물100g)</span>
                     </div>
+                    <input type="range" id="slider-solute" min="0" max="200" value="50" class="h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer absolute" style="width: 400px; transform: rotate(-90deg); accent-color: #475569;">
                 </div>
             </div>
+        </div>
 
-            <!-- 가상 실험실 섹션 -->
-            <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl mb-2 text-white">
-                <h2 class="text-xl font-bold mb-5 text-center flex items-center justify-center gap-2">
-                    <span>🔬</span> 가상 실험실
+        <!-- === 오른쪽: 비커 시각화 및 데이터창 === -->
+        <div class="flex flex-col gap-3 lg:gap-4">
+            
+            <!-- 비커 시각화 영역 -->
+            <div class="bg-white p-4 lg:p-5 rounded-3xl shadow-lg border border-slate-100 flex flex-col items-center justify-center flex-1">
+                <h2 class="text-base lg:text-lg font-bold mb-2 flex items-center text-slate-700 w-full">
+                    <!-- Beaker Icon -->
+                    <svg class="w-5 h-5 mr-2 text-indigo-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 3h15"></path><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"></path><path d="M6 14h12"></path></svg>
+                    용액 시각화
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- 로르산 실험대 -->
-                    <div class="bg-slate-700 rounded-lg p-5 flex flex-col items-center border border-slate-600 relative overflow-hidden">
-                        <div class="absolute top-0 left-0 bg-blue-500 text-white font-bold text-sm px-3 py-1 rounded-br-lg shadow-md z-10">1. 로르산</div>
-                        <div class="beaker mb-2 mt-3">
-                            <div id="lauric-wrapper" class="substance-wrapper" style="height: 0%;">
-                                <!-- 고체 레이어를 위로, 액체 레이어를 아래로 배치 -->
-                                <div id="lauric-solid" class="solid-layer"></div>
-                                <div id="lauric-liquid" class="liquid-layer lauric-liquid"></div>
-                            </div>
-                        </div>
-                        <div id="lauric-flame" class="flame-container">🔥</div>
+                
+                <div class="relative w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72">
+                    <svg viewBox="0 0 200 250" class="w-full h-full drop-shadow-xl overflow-visible">
+                        <!-- 물 -->
+                        <path d="M 23 100 L 177 100 L 175 235 C 175 238 173 240 170 240 L 30 240 C 27 240 25 238 25 235 Z" fill="#e0f2fe" opacity="0.8"></path>
+                        <ellipse cx="100" cy="100" rx="77" ry="6" fill="#bae6fd" opacity="0.6"></ellipse>
                         
-                        <div class="mt-3 flex gap-2 w-full justify-center">
-                            <button onclick="addMass('lauric', 1)" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-1.5 px-2 rounded text-sm font-medium transition shadow">1g 넣기</button>
-                            <button onclick="addMass('lauric', 2)" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-1.5 px-2 rounded text-sm font-medium transition shadow">2g 넣기</button>
-                            <button onclick="resetLab('lauric')" class="flex-1 bg-slate-500 hover:bg-slate-400 text-white py-1.5 px-2 rounded text-sm font-medium transition shadow">비우기</button>
-                        </div>
-                        <button onclick="startHeating('lauric')" class="mt-4 w-1/2 bg-red-500 hover:bg-red-400 text-white font-bold py-2 px-4 rounded-full text-sm transition shadow-lg flex justify-center items-center gap-1 mx-auto">
-                            가열하기
-                        </button>
-                    </div>
-                    
-                    <!-- 팔미트산 실험대 -->
-                    <div class="bg-slate-700 rounded-lg p-5 flex flex-col items-center border border-slate-600 relative overflow-hidden">
-                        <div class="absolute top-0 left-0 bg-orange-500 text-white font-bold text-sm px-3 py-1 rounded-br-lg shadow-md z-10">2. 팔미트산</div>
-                        <div class="beaker mb-2 mt-3">
-                            <div id="palmitic-wrapper" class="substance-wrapper" style="height: 0%;">
-                                <!-- 고체 레이어를 위로, 액체 레이어를 아래로 배치 -->
-                                <div id="palmitic-solid" class="solid-layer"></div>
-                                <div id="palmitic-liquid" class="liquid-layer palmitic-liquid"></div>
-                            </div>
-                        </div>
-                        <div id="palmitic-flame" class="flame-container">🔥</div>
-                        
-                        <div class="mt-3 flex gap-2 w-full justify-center">
-                            <button onclick="addMass('palmitic', 1)" class="flex-1 bg-orange-500 hover:bg-orange-400 text-white py-1.5 px-2 rounded text-sm font-medium transition shadow">1g 넣기</button>
-                            <button onclick="addMass('palmitic', 2)" class="flex-1 bg-orange-500 hover:bg-orange-400 text-white py-1.5 px-2 rounded text-sm font-medium transition shadow">2g 넣기</button>
-                            <button onclick="resetLab('palmitic')" class="flex-1 bg-slate-500 hover:bg-slate-400 text-white py-1.5 px-2 rounded text-sm font-medium transition shadow">비우기</button>
-                        </div>
-                        <button onclick="startHeating('palmitic')" class="mt-4 w-1/2 bg-red-500 hover:bg-red-400 text-white font-bold py-2 px-4 rounded-full text-sm transition shadow-lg flex justify-center items-center gap-1 mx-auto">
-                            가열하기
-                        </button>
-                    </div>
-                </div>
+                        <!-- 동그라미 입자들이 들어갈 그룹 -->
+                        <g id="beaker-particles"></g>
 
-                <!-- 하단 액션 버튼 그룹 -->
-                <div class="mt-6 flex justify-center gap-4 border-t border-slate-600 pt-5 flex-wrap">
-                    <button onclick="startHeatingBoth()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded-full text-sm transition shadow-xl flex justify-center items-center gap-2 ring-2 ring-purple-900">
-                        🔥 두 물질 동시 가열하기
-                    </button>
-                    <button onclick="openQuizModal()" class="bg-pink-500 hover:bg-pink-400 text-white font-bold py-2 px-6 rounded-full text-sm transition shadow-xl flex justify-center items-center gap-2 ring-2 ring-pink-800">
-                        📝 결과 정리하기
-                    </button>
+                        <!-- 비커 외곽선 -->
+                        <path d="M 15 20 L 22 235 C 22 243 28 248 35 248 L 165 248 C 172 248 178 243 178 235 L 185 20" fill="none" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></path>
+                        <line x1="18" y1="100" x2="35" y2="100" stroke="#94a3b8" stroke-width="2"></line>
+                        <text x="40" y="104" font-size="12" fill="#64748b" font-weight="bold">물 100g</text>
+                    </svg>
                 </div>
             </div>
+
+            <!-- 용액의 상태 창 -->
+            <div class="bg-white p-3 lg:p-4 rounded-2xl shadow-lg border border-slate-100">
+                <h2 class="text-sm lg:text-base font-bold mb-2 flex items-center text-indigo-500">
+                    <!-- Info Icon -->
+                    <svg class="w-4 h-4 mr-1.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+                    용액의 상태
+                </h2>
+                
+                <div id="status-box" class="py-1.5 px-2 lg:py-2 lg:px-3 mb-2 rounded-lg font-bold text-base lg:text-lg text-center border-2 bg-opacity-10">
+                    <span id="text-status"></span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-1.5 lg:gap-2">
+                    <div class="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
+                        <span class="text-[9px] lg:text-[10px] text-slate-500 block">1) 현재 온도</span>
+                        <span class="text-xs lg:text-sm font-bold text-slate-800"><span id="val-temp"></span> ℃</span>
+                    </div>
+                    <div class="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
+                        <span class="text-[9px] lg:text-[10px] text-slate-500 block">2) 녹인 용질 총량</span>
+                        <span class="text-xs lg:text-sm font-bold text-slate-800"><span id="val-total"></span> g</span>
+                    </div>
+                    <div class="bg-slate-50 p-1.5 lg:p-2 rounded-lg border border-slate-100 flex flex-col justify-center">
+                        <span class="text-[9px] lg:text-[10px] text-slate-500 block">3) 현재 온도 최대 용해도</span>
+                        <span class="text-xs lg:text-sm font-bold text-slate-800"><span id="val-max"></span> g</span>
+                    </div>
+                    <div class="bg-blue-50 p-1.5 lg:p-2 rounded-lg border border-blue-100 flex flex-col justify-center">
+                        <span class="text-[9px] lg:text-[10px] text-blue-600 block">4) 녹아있는 양</span>
+                        <span class="text-xs lg:text-sm font-bold text-blue-700"><span id="val-dissolved"></span> g</span>
+                    </div>
+                    <div id="card-precip" class="col-span-2 p-1.5 lg:p-2 rounded-lg border flex flex-col justify-center bg-slate-50 border-slate-100">
+                        <span id="label-precip" class="text-[9px] lg:text-[10px] block text-slate-500">5) 바닥에 가라앉은 양 (석출량)</span>
+                        <span id="val-precip" class="text-sm lg:text-base font-bold text-slate-800"></span>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <!-- 팝업창(모달) - 탐구 결과 정리하기 -->
-    <div id="quizModal" class="fixed inset-0 z-50 bg-black bg-opacity-60 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl p-6 border border-gray-200 shadow-2xl max-w-2xl w-full relative">
-            <button onclick="closeQuizModal()" class="absolute top-4 right-5 text-gray-400 hover:text-gray-700 text-3xl font-bold">
-                &times;
-            </button>
-            <h2 class="text-2xl font-bold mb-4 flex items-center"><span class="bg-pink-400 text-white rounded-full w-8 h-8 flex items-center justify-center mr-2 text-sm">탐구</span> 결과 정리하기</h2>
-            
-            <div class="space-y-4">
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <p class="font-medium text-base mb-2 text-pink-600">Q1. 로르산과 팔미트산의 녹는점은 각각 몇 ℃인가요?</p>
-                    <div class="flex flex-wrap gap-4 items-center pl-2">
-                        <label>로르산: <input type="number" id="ans-lauric-temp" class="quiz-input" step="0.1"> ℃</label>
-                        <label>팔미트산: <input type="number" id="ans-palmitic-temp" class="quiz-input" step="0.1"> ℃</label>
-                    </div>
-                </div>
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <p class="font-medium text-base mb-2 text-pink-600">Q2. 녹는점으로 로르산과 팔미트산을 구별할 수 있나요?</p>
-                    <div class="pl-2">
-                        <select id="ans-distinguish" class="quiz-select bg-white w-full sm:w-auto">
-                            <option value="">선택하세요</option>
-                            <option value="yes">예, 구별할 수 있습니다.</option>
-                            <option value="no">아니오, 구별할 수 없습니다.</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <p class="font-medium text-base mb-2 text-pink-600">Q3. 같은 종류의 물질일 때 양(1g, 2g)에 따라 녹는점이 달라지나요?</p>
-                    <div class="pl-2">
-                        <select id="ans-mass" class="quiz-select bg-white w-full sm:w-auto">
-                            <option value="">선택하세요</option>
-                            <option value="diff">양이 많아지면 녹는점이 높아집니다.</option>
-                            <option value="same">양이 달라져도 녹는점은 변하지 않습니다.</option>
-                        </select>
-                        <p class="text-xs text-gray-500 mt-2">단, 양이 많아지면 녹는점에 도달하거나 모두 녹는 데 걸리는 <span class="font-bold">시간</span>은 길어집니다.</p>
-                    </div>
-                </div>
-
-                <div class="text-center pt-2">
-                    <button onclick="checkAnswers()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-8 rounded-full text-base shadow-md transition transform hover:scale-105">
-                        정답 확인하기 ✔️
-                    </button>
-                </div>
-                <div id="feedback" class="mt-2 text-center font-bold text-base hidden"></div>
-            </div>
-        </div>
-    </div>
-
+    <!-- 로직 스크립트 -->
     <script>
-        const commonOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    type: 'linear',
-                    title: { display: true, text: '시간 (분)', font: { size: 12 } },
-                    min: 0,
-                    max: 24,
-                    ticks: { stepSize: 4, font: { size: 10 } },
-                    grid: { color: '#e5e7eb', borderDash: [5, 5] }
-                },
-                y: {
-                    title: { display: true, text: '온도 (℃)', font: { size: 12 } },
-                    min: 20,
-                    max: 90,
-                    ticks: { font: { size: 10 } },
-                    grid: { color: '#e5e7eb', borderDash: [5, 5] }
-                }
-            },
-            plugins: {
-                legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
-            },
-            animation: false
+        // --- 상수 및 좌표 매핑 로직 ---
+        const SVG_SIZE = 500;
+        const PADDING = { top: 40, right: 40, bottom: 60, left: 60 };
+        const graphW = SVG_SIZE - PADDING.left - PADDING.right;
+        const graphH = SVG_SIZE - PADDING.top - PADDING.bottom;
+
+        const mapX = (val) => PADDING.left + (val / 100) * graphW;
+        const mapY = (val) => PADDING.top + graphH - (val / 200) * graphH;
+
+        // 용해도 곡선 방정식
+        const calculateSolubility = (temp) => {
+            const a = 11 / 67200;
+            const c = 13 / 168;
+            const d = 60;
+            return a * Math.pow(temp, 3) + c * temp + d;
         };
 
-        const ctxLauric = document.getElementById('lauricChart').getContext('2d');
-        const lauricChart = new Chart(ctxLauric, {
-            type: 'line',
-            data: {
-                datasets: [
-                    { label: '로르산 1g', data: [], borderColor: '#f97316', backgroundColor: '#f97316', borderWidth: 2, pointRadius: 0, tension: 0.1 },
-                    { label: '로르산 2g', data: [], borderColor: '#3b82f6', backgroundColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.1 }
-                ]
-            },
-            options: commonOptions
-        });
+        // --- 초기 SVG 정적 요소 렌더링 ---
+        function initStaticSVG() {
+            const bgGroup = document.getElementById('graph-static-bg');
+            const ptGroup = document.getElementById('graph-static-points');
+            const svgNS = "http://www.w3.org/2000/svg";
 
-        const ctxPalmitic = document.getElementById('palmiticChart').getContext('2d');
-        const palmiticChart = new Chart(ctxPalmitic, {
-            type: 'line',
-            data: {
-                datasets: [
-                    { label: '팔미트산 1g', data: [], borderColor: '#f97316', backgroundColor: '#f97316', borderWidth: 2, pointRadius: 0, tension: 0.1 },
-                    { label: '팔미트산 2g', data: [], borderColor: '#3b82f6', backgroundColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.1 }
-                ]
-            },
-            options: commonOptions
-        });
+            const createLine = (x1, y1, x2, y2, stroke, strokeWidth, dash) => {
+                let l = document.createElementNS(svgNS, "line");
+                l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+                l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+                l.setAttribute("stroke", stroke);
+                l.setAttribute("stroke-width", strokeWidth);
+                if(dash) l.setAttribute("stroke-dasharray", dash);
+                return l;
+            };
 
-        function generateData(type, mass, maxTime) {
-            let data = [];
-            let temp = 20;
-            let meltingPoint = type === 'lauric' ? 43.8 : 62.5;
-            
-            let timeAtMeltingPoint;
-            let meltDuration;
+            const createText = (x, y, text, align, size="12", weight="normal", fill="#64748b") => {
+                let t = document.createElementNS(svgNS, "text");
+                t.setAttribute("x", x); t.setAttribute("y", y);
+                t.setAttribute("font-size", size);
+                t.setAttribute("fill", fill);
+                t.setAttribute("text-anchor", align);
+                t.setAttribute("font-weight", weight);
+                t.textContent = text;
+                return t;
+            };
 
-            if (type === 'lauric') {
-                timeAtMeltingPoint = mass === 1 ? 4 : 8;
-                meltDuration = mass === 1 ? 4 : 8;
-            } else {
-                timeAtMeltingPoint = mass === 1 ? 6 : 12;
-                meltDuration = mass === 1 ? 4 : 8;
-            }
+            // 그리드 생성
+            [0, 20, 40, 60, 80, 100].forEach(t => bgGroup.appendChild(createLine(mapX(t), mapY(0), mapX(t), mapY(200), "#f1f5f9", "2")));
+            [0, 50, 100, 150, 200].forEach(v => bgGroup.appendChild(createLine(mapX(0), mapY(v), mapX(100), mapY(v), "#f1f5f9", "2")));
+            // 축 생성
+            bgGroup.appendChild(createLine(mapX(0), mapY(0), mapX(100), mapY(0), "#475569", "3"));
+            bgGroup.appendChild(createLine(mapX(0), mapY(0), mapX(0), mapY(200), "#475569", "3"));
+            // 축 라벨
+            [0, 20, 40, 60, 80, 100].forEach(t => bgGroup.appendChild(createText(mapX(t), mapY(0) + 18, t, "middle")));
+            [0, 50, 100, 150, 200].forEach(v => bgGroup.appendChild(createText(mapX(0) - 10, mapY(v) + 4, v, "end")));
+            bgGroup.appendChild(createText(mapX(90), mapY(0) + 40, "온도(℃)", "middle", "14", "bold", "#334155"));
 
-            let timeAfterMelt = timeAtMeltingPoint + meltDuration;
-            let heatRateSolid = (meltingPoint - 20) / timeAtMeltingPoint; 
-            let heatRateLiquid = heatRateSolid; 
+            // 가이드 점선 (A,B,C,D)
+            bgGroup.appendChild(createLine(mapX(0), mapY(100), mapX(80), mapY(100), "#94a3b8", "1.5", "4,4"));
+            bgGroup.appendChild(createLine(mapX(0), mapY(150), mapX(80), mapY(150), "#94a3b8", "1.5", "4,4"));
+            bgGroup.appendChild(createLine(mapX(60), mapY(0), mapX(60), mapY(150), "#94a3b8", "1.5", "4,4"));
+            bgGroup.appendChild(createLine(mapX(80), mapY(0), mapX(80), mapY(150), "#94a3b8", "1.5", "4,4"));
 
-            for (let t = 0; t <= maxTime; t += 0.1) {
-                if (t < timeAtMeltingPoint) {
-                    temp = 20 + (heatRateSolid * t);
-                } else if (t >= timeAtMeltingPoint && t < timeAfterMelt) {
-                    temp = meltingPoint;
-                } else {
-                    temp = meltingPoint + (heatRateLiquid * (t - timeAfterMelt));
-                }
-                data.push({ x: t, y: temp });
-            }
-            return data;
+            // 곡선 그리기
+            let curveD = `M ${mapX(0)} ${mapY(calculateSolubility(0))}`;
+            for (let t = 1; t <= 100; t++) { curveD += ` L ${mapX(t)} ${mapY(calculateSolubility(t))}`; }
+            document.getElementById('curve-path').setAttribute('d', curveD);
+
+            // A, B, C, D 점
+            const points = [
+                { id: 'C', x: 60, y: 150, ox: 0, oy: -12 },
+                { id: 'B', x: 80, y: 150, ox: 0, oy: -12 },
+                { id: 'D', x: 60, y: 100, ox: -16, oy: -12 },
+                { id: 'A', x: 80, y: 100, ox: 16, oy: 6 }
+            ];
+            points.forEach(p => {
+                let c = document.createElementNS(svgNS, "circle");
+                c.setAttribute("cx", mapX(p.x)); c.setAttribute("cy", mapY(p.y));
+                c.setAttribute("r", "5"); c.setAttribute("fill", "#334155");
+                ptGroup.appendChild(c);
+                ptGroup.appendChild(createText(mapX(p.x) + p.ox, mapY(p.y) + p.oy, p.id, "middle", "16", "bold", "#1e293b"));
+            });
         }
 
-        const simData = {
-            lauric: {
-                1: generateData('lauric', 1, 24),
-                2: generateData('lauric', 2, 24)
-            },
-            palmitic: {
-                1: generateData('palmitic', 1, 24),
-                2: generateData('palmitic', 2, 24)
-            }
-        };
-
-        // 녹는 구간의 시작/끝 인덱스 (0.1 step 기준)
-        const meltingIndices = {
-            lauric: {
-                1: { start: 40, end: 80 },
-                2: { start: 80, end: 160 }
-            },
-            palmitic: {
-                1: { start: 60, end: 100 },
-                2: { start: 120, end: 200 }
-            }
-        };
-
-        let beakerState = { lauric: 0, palmitic: 0 };
-        let intervals = { lauric_1: null, lauric_2: null, palmitic_1: null, palmitic_2: null };
-
-        function addMass(type, mass) {
-            beakerState[type] = mass;
-            const wrapEl = document.getElementById(`${type}-wrapper`);
-            const solidEl = document.getElementById(`${type}-solid`);
-            const liquidEl = document.getElementById(`${type}-liquid`);
-            
-            // 기존 가열 중인 애니메이션이 있다면 중지 (상태 덮어쓰기 방지)
-            clearInterval(intervals[`${type}_1`]);
-            clearInterval(intervals[`${type}_2`]);
-            intervals[`${type}_1`] = null;
-            intervals[`${type}_2`] = null;
-            
-            // 불꽃 끄기
-            document.getElementById(`${type}-flame`).classList.remove('flame-active');
-            
-            // 높이 및 투명도 초기화 (가루 100%, 액체 0%) - 무조건 하얀 가루 상태로 복구
-            wrapEl.style.height = mass === 1 ? '30%' : '60%';
-            solidEl.style.height = '100%';
-            solidEl.style.opacity = '1';
-            liquidEl.style.height = '0%';
-            liquidEl.style.opacity = '0';
-        }
-
-        function resetLab(type) {
-            beakerState[type] = 0;
-            const wrapEl = document.getElementById(`${type}-wrapper`);
-            const solidEl = document.getElementById(`${type}-solid`);
-            const liquidEl = document.getElementById(`${type}-liquid`);
-            
-            wrapEl.style.height = '0%';
-            solidEl.style.height = '100%';
-            solidEl.style.opacity = '1';
-            liquidEl.style.height = '0%';
-            liquidEl.style.opacity = '0';
-            
-            clearInterval(intervals[`${type}_1`]);
-            clearInterval(intervals[`${type}_2`]);
-            intervals[`${type}_1`] = null;
-            intervals[`${type}_2`] = null;
-            
-            document.getElementById(`${type}-flame`).classList.remove('flame-active');
-
-            const chart = type === 'lauric' ? lauricChart : palmiticChart;
-            chart.data.datasets[0].data = [];
-            chart.data.datasets[1].data = [];
-            chart.update();
-        }
-
-        function startHeating(type, suppressAlert = false) {
-            const mass = beakerState[type];
-            if (mass === 0) {
-                if (!suppressAlert) alert('먼저 [1g 넣기] 또는 [2g 넣기] 버튼을 눌러 비커에 가루를 추가해주세요.');
-                return;
-            }
-
-            const intervalKey = `${type}_${mass}`;
-            if (intervals[intervalKey]) return; 
-
-            const chart = type === 'lauric' ? lauricChart : palmiticChart;
-            const datasetIndex = mass === 1 ? 0 : 1;
-            
-            chart.data.datasets[datasetIndex].data = [];
-            
-            document.getElementById(`${type}-flame`).classList.add('flame-active');
-            
-            const solidEl = document.getElementById(`${type}-solid`);
-            const liquidEl = document.getElementById(`${type}-liquid`);
-            
+        // --- 입자 위치 데이터 생성 ---
+        const liquidPositions = (() => {
+            const pos = [];
+            const rows = 8;
+            const colsPerRow = [6, 6, 6, 7, 6, 6, 6, 7];
             let currentIndex = 0;
-            const maxIndex = simData[type][mass].length;
-            
-            // 해당 물질/질량의 정확한 녹는 구간 인덱스 가져오기
-            const meltStart = meltingIndices[type][mass].start;
-            const meltEnd = meltingIndices[type][mass].end;
-
-            intervals[intervalKey] = setInterval(() => {
-                if (currentIndex < maxIndex) {
-                    // 데이터 추가 및 차트 업데이트
-                    chart.data.datasets[datasetIndex].data.push(simData[type][mass][currentIndex]);
-                    chart.update();
-                    
-                    // 녹는 구간 애니메이션 (상태 변화)
-                    if (currentIndex <= meltStart) {
-                        // 녹기 전: 고체 100%
-                        solidEl.style.height = '100%';
-                        solidEl.style.opacity = '1';
-                        liquidEl.style.height = '0%';
-                        liquidEl.style.opacity = '0';
-                    } else if (currentIndex > meltStart && currentIndex < meltEnd) {
-                        // 녹는 중: 진행도(progress)에 따라 서서히 변환
-                        let progress = (currentIndex - meltStart) / (meltEnd - meltStart);
-                        solidEl.style.height = `${(1 - progress) * 100}%`;
-                        solidEl.style.opacity = '1';
-                        liquidEl.style.height = `${progress * 100}%`;
-                        liquidEl.style.opacity = '1';
-                    } else {
-                        // 다 녹은 후 (온도 재상승 구간): 액체 100%
-                        solidEl.style.height = '0%';
-                        solidEl.style.opacity = '0'; // 다 녹으면 고체 숨김 (점선 테두리 제거)
-                        liquidEl.style.height = '100%';
-                        liquidEl.style.opacity = '1';
-                    }
-
+            for (let r = 0; r < rows; r++) {
+                const cols = colsPerRow[r];
+                const y = 115 + r * 14.5;
+                const startX = 40, endX = 160;
+                const stepX = (endX - startX) / (cols > 1 ? cols - 1 : 1);
+                for (let c = 0; c < cols; c++) {
+                    const noiseX = Math.sin(currentIndex * 13) * 18;
+                    const noiseY = Math.cos(currentIndex * 17) * 18;
+                    let finalX = Math.max(38, Math.min(162, startX + c * stepX + noiseX));
+                    let finalY = Math.max(110, Math.min(220, y + noiseY));
+                    pos.push({ x: finalX, y: finalY });
                     currentIndex++;
-                } else {
-                    clearInterval(intervals[intervalKey]);
-                    intervals[intervalKey] = null;
-                    document.getElementById(`${type}-flame`).classList.remove('flame-active');
                 }
-            }, 80); 
-        }
-
-        function startHeatingBoth() {
-            let isHeated = false;
-            if (beakerState['lauric'] > 0) {
-                startHeating('lauric', true);
-                isHeated = true;
             }
-            if (beakerState['palmitic'] > 0) {
-                startHeating('palmitic', true);
-                isHeated = true;
+            // Shuffle
+            for (let i = pos.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.abs(Math.sin(i * 31)) * (i + 1));
+                [pos[i], pos[j]] = [pos[j], pos[i]];
             }
-            if (!isHeated) {
-                alert('가열할 물질이 없습니다. 먼저 비커에 가루 1g 또는 2g을 추가해주세요.');
+            return pos;
+        })();
+
+        const bottomPositions = (() => {
+            const pos = [];
+            const rows = 7;
+            const colsPerRow = [8, 7, 8, 7, 8, 7, 5];
+            const spacing = 16;
+            for (let r = 0; r < rows; r++) {
+                const cols = colsPerRow[r];
+                const y = 234 - r * 13;
+                const startX = 100 - ((cols - 1) * spacing) / 2;
+                for (let c = 0; c < cols; c++) { pos.push({ x: startX + c * spacing, y: y }); }
             }
-        }
+            return pos;
+        })();
 
-        function openQuizModal() {
-            document.getElementById('quizModal').classList.remove('hidden');
-        }
 
-        function closeQuizModal() {
-            document.getElementById('quizModal').classList.add('hidden');
-        }
-
-        function checkAnswers() {
-            const lauricTemp = parseFloat(document.getElementById('ans-lauric-temp').value);
-            const palmiticTemp = parseFloat(document.getElementById('ans-palmitic-temp').value);
-            const distinguish = document.getElementById('ans-distinguish').value;
-            const massEffect = document.getElementById('ans-mass').value;
-            const feedbackEl = document.getElementById('feedback');
-
-            let isCorrect = true;
-            let msg = [];
-
-            if (lauricTemp !== 43.8) { isCorrect = false; msg.push("로르산의 녹는점을 그래프의 수평 구간에서 다시 확인해보세요. (힌트: 43.8)"); }
-            if (palmiticTemp !== 62.5) { isCorrect = false; msg.push("팔미트산의 녹는점을 그래프의 수평 구간에서 다시 확인해보세요. (힌트: 62.5)"); }
-            if (distinguish !== 'yes') { isCorrect = false; msg.push("물질마다 녹는점이 다르기 때문에 구별할 수 있습니다."); }
-            if (massEffect !== 'same') { isCorrect = false; msg.push("같은 물질이면 양이 달라도 녹는점은 일정합니다. (단, 도달하는 시간만 길어집니다.)"); }
-
-            feedbackEl.classList.remove('hidden', 'text-green-600', 'text-red-600');
+        // --- 상태 업데이트 로직 ---
+        function updateSimulation() {
+            const temperature = parseFloat(document.getElementById('slider-temp').value);
+            const soluteAmount = parseFloat(document.getElementById('slider-solute').value);
             
-            if (isCorrect) {
-                feedbackEl.textContent = "🎉 정답입니다! 물질의 양에 관계없이 녹는점은 물질의 고유한 특성임을 잘 이해했네요!";
-                feedbackEl.classList.add('text-green-600');
+            const maxSolubility = calculateSolubility(temperature);
+            
+            const isSaturated = Math.abs(soluteAmount - maxSolubility) <= 1.0;
+            const isSupersaturated = soluteAmount > maxSolubility + 1.0;
+            const isUnsaturated = !isSaturated && !isSupersaturated;
+
+            const dissolvedAmount = isSupersaturated ? maxSolubility : soluteAmount;
+            const precipitatedAmount = isSupersaturated ? soluteAmount - maxSolubility : 0;
+
+            let statusColor = '#3b82f6';
+            let statusTextColorClass = 'text-blue-500';
+            let statusText = '불포화 상태';
+            
+            if (isSupersaturated) {
+                statusColor = '#ef4444';
+                statusTextColorClass = 'text-red-500';
+                statusText = '과포화 및 석출';
+            } else if (isSaturated) {
+                statusColor = '#22c55e';
+                statusTextColorClass = 'text-green-500';
+                statusText = '포화 상태';
+            }
+
+            const pointColor = '#3b82f6';
+            const gPerCircle = 5;
+            const maxCircles = Math.max(0, Math.round(maxSolubility / gPerCircle));
+            const dissolvedCircles = Math.max(0, Math.round(dissolvedAmount / gPerCircle));
+            const precipitatedCircles = Math.max(0, Math.round(precipitatedAmount / gPerCircle));
+
+            // DOM 텍스트 업데이트
+            document.getElementById('val-temp').textContent = temperature;
+            document.getElementById('val-total').textContent = soluteAmount;
+            document.getElementById('val-max').textContent = maxSolubility.toFixed(1);
+            document.getElementById('val-dissolved').textContent = dissolvedAmount.toFixed(1);
+            document.getElementById('val-precip').textContent = precipitatedAmount.toFixed(1) + " g";
+            
+            document.getElementById('text-status').textContent = statusText;
+            
+            const statusBox = document.getElementById('status-box');
+            statusBox.className = `py-1.5 px-2 lg:py-2 lg:px-3 mb-2 rounded-lg font-bold text-base lg:text-lg text-center border-2 ${statusTextColorClass} bg-opacity-10 transition-colors`;
+            statusBox.style.borderColor = statusColor;
+            statusBox.style.backgroundColor = statusColor + '15'; // 15 is hex for ~8% opacity
+
+            const precipCard = document.getElementById('card-precip');
+            const precipLabel = document.getElementById('label-precip');
+            const precipVal = document.getElementById('val-precip');
+            if (isSupersaturated) {
+                precipCard.className = "col-span-2 p-1.5 lg:p-2 rounded-lg border flex flex-col justify-center bg-red-50 border-red-100 transition-colors";
+                precipLabel.className = "text-[9px] lg:text-[10px] block text-red-600";
+                precipVal.className = "text-sm lg:text-base font-bold text-red-700";
             } else {
-                feedbackEl.innerHTML = "❌ 아쉽네요. 다시 한번 생각해 볼까요?<br><span class='text-sm text-gray-600'>" + msg.join("<br>") + "</span>";
-                feedbackEl.classList.add('text-red-600');
+                precipCard.className = "col-span-2 p-1.5 lg:p-2 rounded-lg border flex flex-col justify-center bg-slate-50 border-slate-100 transition-colors";
+                precipLabel.className = "text-[9px] lg:text-[10px] block text-slate-500";
+                precipVal.className = "text-sm lg:text-base font-bold text-slate-800";
+            }
+
+            // 그래프 SVG 요소 위치 업데이트
+            const cx = mapX(temperature);
+            const cy = mapY(soluteAmount);
+
+            const pt = document.getElementById('current-point');
+            pt.setAttribute('cx', cx); pt.setAttribute('cy', cy);
+            pt.setAttribute('fill', statusColor);
+
+            const guideX = document.getElementById('guide-x');
+            guideX.setAttribute('x1', cx); guideX.setAttribute('y1', mapY(0));
+            guideX.setAttribute('x2', cx); guideX.setAttribute('y2', cy);
+            guideX.setAttribute('stroke', statusColor);
+
+            const guideY = document.getElementById('guide-y');
+            guideY.setAttribute('x1', mapX(0)); guideY.setAttribute('y1', cy);
+            guideY.setAttribute('x2', cx); guideY.setAttribute('y2', cy);
+            guideY.setAttribute('stroke', statusColor);
+
+            // 비커 입자 렌더링
+            const particlesGroup = document.getElementById('beaker-particles');
+            particlesGroup.innerHTML = ''; // 기존 입자 제거
+
+            // 1. 녹아있는 용질 및 수용량 표시
+            for (let i = 0; i < maxCircles; i++) {
+                let pos = liquidPositions[i % liquidPositions.length];
+                let isDissolved = i < dissolvedCircles;
+                
+                let c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.setAttribute("cx", pos.x);
+                c.setAttribute("cy", pos.y);
+                c.setAttribute("r", "8");
+                c.setAttribute("fill", isDissolved ? pointColor : "transparent");
+                c.setAttribute("stroke", isDissolved ? "transparent" : "#94a3b8");
+                c.setAttribute("stroke-width", isDissolved ? "0" : "2");
+                if(!isDissolved) c.setAttribute("stroke-dasharray", "3,3");
+                c.style.transition = "all 0.3s ease-in-out";
+                particlesGroup.appendChild(c);
+            }
+
+            // 2. 석출된 용질
+            for (let i = 0; i < precipitatedCircles; i++) {
+                let pos = bottomPositions[i % bottomPositions.length];
+                let c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.setAttribute("cx", pos.x);
+                c.setAttribute("cy", pos.y);
+                c.setAttribute("r", "8");
+                c.setAttribute("fill", pointColor);
+                c.setAttribute("stroke", "#ffffff");
+                c.setAttribute("stroke-width", "1.5");
+                c.style.transition = "all 0.3s ease-in-out";
+                particlesGroup.appendChild(c);
             }
         }
+
+        // --- 초기화 및 이벤트 리스너 등록 ---
+        initStaticSVG();
+        updateSimulation();
+
+        document.getElementById('slider-temp').addEventListener('input', updateSimulation);
+        document.getElementById('slider-solute').addEventListener('input', updateSimulation);
+
     </script>
 </body>
 </html>
